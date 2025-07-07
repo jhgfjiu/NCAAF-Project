@@ -1,0 +1,20 @@
+# Core web scraping dependencies
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Data handling and processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Utility libraries
+tqdm>=4.65.0          # Progress bars for long-running scrapes
+python-dateutil>=2.8.0  # Date parsing utilities
+
+# Optional: Enhanced error handling and retries
+urllib3>=2.0.0
+certifi>=2023.0.0
+
+# Development and testing (optional)
+pytest>=7.0.0
+pytest-mock>=3.10.0
