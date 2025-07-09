@@ -107,10 +107,21 @@ class NCAAFootballScraper:
             
             success_count = sum(results.values())
             total_count = len(results)
+            failed_count = total_count - success_count
             success_rate = (success_count / total_count * 100) if total_count > 0 else 0
             
             self.logger.info(f"Player scraping results: {success_count}/{total_count} "
                            f"players successful ({success_rate:.1f}%)")
+            
+            # Log failed players for debugging
+            if failed_count > 0:
+                failed_urls = [url for url, success in results.items() if not success]
+                self.logger.warning(f"Failed to scrape {failed_count} players:")
+                for url in failed_urls[:5]:  # Show first 5 failed
+                    player_id = url.split('/')[-1].replace('.html', '')
+                    self.logger.warning(f"  - {player_id}")
+                if len(failed_urls) > 5:
+                    self.logger.warning(f"  ... and {len(failed_urls) - 5} more")
             
             # Consider successful if at least 80% succeed
             return success_rate >= 80.0
@@ -208,8 +219,11 @@ def create_argument_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Full scrape of all players
+  # Full scrape of all players (file storage)
   python main.py --full
+  
+  # Full scrape using CouchDB storage
+  python main.py --full --storage couchdb
   
   # Scrape only players with names starting with A and B
   python main.py --full --letters A B
@@ -242,6 +256,10 @@ Examples:
     parser.add_argument('--no-resume', action='store_true',
                        help='Start fresh instead of resuming existing progress')
     
+    # Storage backend selection
+    parser.add_argument('--storage', choices=['file', 'couchdb'], default='file',
+                       help='Storage backend to use (default: file)')
+    
     return parser
 
 
@@ -250,12 +268,28 @@ def main():
     parser = create_argument_parser()
     args = parser.parse_args()
     
+    # Set storage mode from command line argument
+    config.STORAGE_MODE = args.storage
+    
     # Validate letters
     if args.letters:
         args.letters = [letter.upper() for letter in args.letters]
         invalid_letters = [l for l in args.letters if l not in config.ALPHABET]
         if invalid_letters:
             print(f"Error: Invalid letters: {invalid_letters}")
+            sys.exit(1)
+    
+    # Test CouchDB connection if using CouchDB storage
+    if config.STORAGE_MODE == 'couchdb':
+        try:
+            client = utils.get_couchdb_client()
+            db_info = client.get_database_info()
+            print(f"✅ Connected to CouchDB database: {client.database}")
+            print(f"   Documents: {db_info.get('doc_count', 0)}")
+            print(f"   Size: {db_info.get('data_size', 0)} bytes")
+        except Exception as e:
+            print(f"❌ Failed to connect to CouchDB: {e}")
+            print("Make sure CouchDB is running and accessible at the configured URL")
             sys.exit(1)
     
     # Create scraper instance

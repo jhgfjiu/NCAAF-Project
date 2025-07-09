@@ -15,6 +15,10 @@ python-dateutil>=2.8.0  # Date parsing utilities
 urllib3>=2.0.0
 certifi>=2023.0.0
 
+# CouchDB client options (choose one)
+CouchDB>=1.2          # Official CouchDB client
+# cloudant>=2.15.0    # Alternative: IBM Cloudant client (CouchDB compatible)
+
 # Development and testing (optional)
 pytest>=7.0.0
 pytest-mock>=3.10.0

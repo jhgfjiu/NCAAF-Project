@@ -64,3 +64,21 @@ LOG_LEVEL = 'INFO'
 # Session configuration
 SESSION_TIMEOUT = 30  # seconds
 MAX_CONCURRENT_REQUESTS = 1  # Conservative for academic research
+
+# CouchDB Configuration
+COUCHDB_URL = os.getenv('COUCHDB_URL', 'http://localhost:5984')
+COUCHDB_USERNAME = os.getenv('COUCHDB_USERNAME', None)
+COUCHDB_PASSWORD = os.getenv('COUCHDB_PASSWORD', None)
+COUCHDB_DATABASE = os.getenv('COUCHDB_DATABASE', 'ncaaf_players')
+
+# Storage mode: 'file' or 'couchdb'
+STORAGE_MODE = os.getenv('STORAGE_MODE', 'file')
+
+# CouchDB Configuration
+COUCHDB_URL = os.getenv('COUCHDB_URL', 'http://localhost:5984')
+COUCHDB_USERNAME = os.getenv('COUCHDB_USERNAME', None)
+COUCHDB_PASSWORD = os.getenv('COUCHDB_PASSWORD', None)
+COUCHDB_DATABASE = os.getenv('COUCHDB_DATABASE', 'ncaaf_players')
+
+# Storage mode: 'file' or 'couchdb'
+STORAGE_MODE = os.getenv('STORAGE_MODE', 'file')

@@ -81,15 +81,39 @@ class PlayerStatsScraper:
         Returns:
             Dictionary containing all extracted player data
         """
+        self.logger.debug(f"Starting data extraction for player: {player_id}")
+        
+        # Extract each data type
+        player_info = self._extract_player_info(soup)
+        self.logger.debug(f"Player info extracted: {player_info}")
+        
+        season_stats = self._extract_season_stats(soup)
+        self.logger.info(f"Season stats extraction complete: {len(season_stats)} tables found")
+        
+        career_stats = self._extract_career_stats(soup)
+        self.logger.debug(f"Career stats extracted: {len(career_stats)} tables")
+        
+        game_logs = self._extract_game_logs(soup)
+        self.logger.debug(f"Game logs extracted: {len(game_logs)} logs")
+        
+        advanced_stats = self._extract_advanced_stats(soup)
+        self.logger.debug(f"Advanced stats extracted: {len(advanced_stats)} tables")
+        
         data = {
             'player_id': player_id,
             'source_url': player_url,
-            'player_info': self._extract_player_info(soup),
-            'career_stats': self._extract_career_stats(soup),
-            'season_stats': self._extract_season_stats(soup),
-            'game_logs': self._extract_game_logs(soup),
-            'advanced_stats': self._extract_advanced_stats(soup)
+            'player_info': player_info,
+            'career_stats': career_stats,
+            'season_stats': season_stats,
+            'game_logs': game_logs,
+            'advanced_stats': advanced_stats
         }
+        
+        self.logger.info(f"Data extraction complete for {player_id}: "
+                        f"info={'✓' if player_info else '✗'}, "
+                        f"season_stats={len(season_stats)}, "
+                        f"career_stats={len(career_stats)}, "
+                        f"game_logs={len(game_logs)}")
         
         return data
     
@@ -367,16 +391,16 @@ class PlayerStatsScraper:
         
         # Filter already processed if resuming
         if resume:
-            existing_files = utils.get_existing_player_files(self.logger)
+            existing_data = utils.get_existing_data_ids(self.logger)
             urls_to_process = []
             
             for url in player_urls:
                 player_id = utils.extract_player_id_from_url(url)
-                if player_id not in existing_files:
+                if player_id not in existing_data:
                     urls_to_process.append(url)
             
             self.logger.info(f"Resuming scrape: {len(urls_to_process)} new players, "
-                           f"{len(existing_files)} already processed")
+                           f"{len(existing_data)} already processed")
         else:
             urls_to_process = player_urls
         
