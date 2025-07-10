@@ -35,7 +35,7 @@ class PlayerIndexScraper:
         
         # Check cache first
         cache_file = config.STORAGE_DIR / config.INDEX_CACHE_PATTERN.format(letter=letter)
-        cached_data = utils.load_json(cache_file, self.logger)
+        cached_data = utils.load_data(cache_file, self.logger)
         if cached_data:
             self.logger.info(f"Using cached data for letter '{letter}' ({len(cached_data)} players)")
             return cached_data
@@ -52,7 +52,7 @@ class PlayerIndexScraper:
             self.logger.info(f"Found {len(players)} players for letter '{letter}'")
             
             # Cache the results
-            utils.save_json(players, cache_file, self.logger)
+            utils.save_data(players, cache_file, self.logger)
             
             return players
             
@@ -177,12 +177,12 @@ class PlayerIndexScraper:
         
         return ordered_urls
     
-    def save_consolidated_index(self, output_file: str = "all_players_index.json") -> bool:
+    def save_consolidated_index(self, output_file: str = "all_players_index") -> bool:
         """
-        Save consolidated player index to file.
+        Save consolidated player index using unified storage.
         
         Args:
-            output_file: Name of output file
+            output_file: Name of output identifier (no extension needed)
             
         Returns:
             True if successful, False otherwise
@@ -190,20 +190,18 @@ class PlayerIndexScraper:
         if not self.player_urls:
             self.logger.warning("No player URLs to save. Run scrape_all_letters() first.")
             return False
-        
-        # Convert set to sorted list for JSON serialization
+
         player_list = sorted(list(self.player_urls))
         
-        output_path = config.STORAGE_DIR / output_file
         data = {
             'scraped_at': utils.format_stats_data({})['scraped_at'],
             'total_players': len(player_list),
             'player_urls': player_list
         }
         
-        success = utils.save_json(data, output_path, self.logger)
+        success = utils.save_data(data, output_file, self.logger)
         if success:
-            self.logger.info(f"Saved consolidated index with {len(player_list)} players to {output_path}")
+            self.logger.info(f"Saved consolidated index with {len(player_list)} players using {config.STORAGE_MODE} storage")
         
         return success
 
@@ -223,7 +221,7 @@ def main():
             print(f"  Sample: {players[0]['name']} -> {players[0]['player_id']}")
     
     # Save consolidated index
-    scraper.save_consolidated_index("test_index.json")
+    scraper.save_consolidated_index("test_index")
 
 
 if __name__ == "__main__":

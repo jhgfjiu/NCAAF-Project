@@ -44,7 +44,7 @@ class PlayerStatsScraper:
         output_file = config.PLAYER_DATA_DIR / config.PLAYER_FILE_PATTERN.format(player_id=player_id)
         if output_file.exists():
             self.logger.debug(f"Player {player_id} already scraped, skipping")
-            return utils.load_json(output_file, self.logger)
+            return utils.load_data(output_file, self.logger)
         
         response = utils.safe_request(self.session, player_url, self.logger)
         if not response:
@@ -58,7 +58,7 @@ class PlayerStatsScraper:
             if player_data:
                 # Format and save data
                 formatted_data = utils.format_stats_data(player_data)
-                utils.save_json(formatted_data, output_file, self.logger)
+                utils.save_data(formatted_data, output_file, self.logger)
                 self.logger.info(f"Successfully scraped player: {player_id}")
                 return formatted_data
             else:
@@ -433,6 +433,8 @@ def main():
     # player_urls = list(index_scraper.get_all_player_urls(['A']))[:5]  # Test first 5
     
     print("Player scraper ready. Use with URLs from index_scraper.")
+    print(f"Current storage mode: {config.STORAGE_MODE}")
+    print("Available storage modes: 'file' (default) or 'couchdb'")
 
 
 if __name__ == "__main__":

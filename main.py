@@ -133,55 +133,88 @@ class NCAAFootballScraper:
     def _generate_summary_report(self) -> None:
         """Generate a summary report of the scraping results."""
         try:
-            # Count scraped players
-            player_files = list(config.PLAYER_DATA_DIR.glob("*.json"))
-            total_players = len(player_files)
-            
-            # Sample some players for data quality check
-            sample_size = min(10, total_players)
-            sample_players = []
-            
-            for i, player_file in enumerate(player_files[:sample_size]):
-                player_data = utils.load_json(player_file, self.logger)
-                if player_data:
-                    sample_players.append({
-                        'player_id': player_data.get('player_info', {}).get('name', player_file.stem),
-                        'seasons': len(player_data.get('season_stats', [])),
-                        'has_career_stats': bool(player_data.get('career_stats')),
-                        'has_game_logs': bool(player_data.get('game_logs')),
-                        'file_size_kb': round(player_file.stat().st_size / 1024, 1)
-                    })
+            # Get player count based on storage mode
+            if config.STORAGE_MODE == 'couchdb':
+                existing_data = utils.get_existing_data_ids(self.logger)
+                total_players = len(existing_data)
+                
+                # Sample some players for data quality check
+                sample_size = min(10, total_players)
+                sample_players = []
+                
+                if existing_data:
+                    client = utils.get_couchdb_client()
+                    sample_ids = list(existing_data)[:sample_size]
+                    
+                    for player_id in sample_ids:
+                        player_data = client.get_document(player_id)
+                        if player_data:
+                            sample_players.append({
+                                'player_id': player_data.get('player_info', {}).get('name', player_id),
+                                'seasons': len(player_data.get('season_stats', [])),
+                                'has_career_stats': bool(player_data.get('career_stats')),
+                                'has_game_logs': bool(player_data.get('game_logs')),
+                                'doc_size_kb': round(len(str(player_data)) / 1024, 1)  # Approximate size
+                            })
+            else:
+                # File-based storage
+                existing_data = utils.get_existing_data_ids(self.logger)
+                total_players = len(existing_data)
+                
+                # Sample some players for data quality check
+                sample_size = min(10, total_players)
+                sample_players = []
+                
+                sample_ids = list(existing_data)[:sample_size]
+                for player_id in sample_ids:
+                    player_data = utils.load_data(player_id, self.logger)
+                    if player_data:
+                        # For file storage, calculate file size
+                        file_path = config.PLAYER_DATA_DIR / f"{player_id}"
+                        file_size = file_path.stat().st_size / 1024 if file_path.exists() else 0
+                        
+                        sample_players.append({
+                            'player_id': player_data.get('player_info', {}).get('name', player_id),
+                            'seasons': len(player_data.get('season_stats', [])),
+                            'has_career_stats': bool(player_data.get('career_stats')),
+                            'has_game_logs': bool(player_data.get('game_logs')),
+                            'file_size_kb': round(file_size, 1)
+                        })
             
             # Create summary report
             report = {
                 'scrape_summary': {
                     'total_players_scraped': total_players,
-                    'storage_directory': str(config.PLAYER_DATA_DIR),
+                    'storage_mode': config.STORAGE_MODE,
+                    'storage_location': str(config.PLAYER_DATA_DIR) if config.STORAGE_MODE == 'file' else config.COUCHDB_URL,
                     'sample_players': sample_players
                 },
                 'data_quality': {
                     'avg_seasons_per_player': sum(p['seasons'] for p in sample_players) / len(sample_players) if sample_players else 0,
                     'players_with_career_stats': sum(1 for p in sample_players if p['has_career_stats']),
                     'players_with_game_logs': sum(1 for p in sample_players if p['has_game_logs']),
-                    'avg_file_size_kb': sum(p['file_size_kb'] for p in sample_players) / len(sample_players) if sample_players else 0
+                    'avg_data_size_kb': sum(p.get('file_size_kb', p.get('doc_size_kb', 0)) for p in sample_players) / len(sample_players) if sample_players else 0
                 },
                 'configuration': {
                     'request_delay': config.REQUEST_DELAY,
                     'max_retries': config.MAX_RETRIES,
-                    'headers': config.HEADERS['User-Agent']
+                    'headers': config.HEADERS['User-Agent'],
+                    'storage_mode': config.STORAGE_MODE
                 }
             }
             
-            # Save report
-            report_file = config.STORAGE_DIR / "scraping_summary.json"
-            utils.save_json(report, report_file, self.logger)
+            # Save report using unified storage
+            report_success = utils.save_data(report, "scraping_summary", self.logger)
             
             # Log summary
             self.logger.info("=== SCRAPING SUMMARY ===")
+            self.logger.info(f"Storage mode: {config.STORAGE_MODE}")
             self.logger.info(f"Total players scraped: {total_players}")
             self.logger.info(f"Average seasons per player: {report['data_quality']['avg_seasons_per_player']:.1f}")
-            self.logger.info(f"Average file size: {report['data_quality']['avg_file_size_kb']:.1f} KB")
-            self.logger.info(f"Summary report saved: {report_file}")
+            self.logger.info(f"Average data size: {report['data_quality']['avg_data_size_kb']:.1f} KB")
+            
+            if report_success:
+                self.logger.info(f"Summary report saved using {config.STORAGE_MODE} storage")
             
         except Exception as e:
             self.logger.error(f"Error generating summary report: {e}")
@@ -196,9 +229,8 @@ class NCAAFootballScraper:
         """Run only the player scraping phase using existing index."""
         self.logger.info("Running player scraping only")
         
-        # Load existing index
-        index_file = config.STORAGE_DIR / "all_players_index.json"
-        index_data = utils.load_json(index_file, self.logger)
+        # Load existing index using unified storage
+        index_data = utils.load_data("all_players_index", self.logger)
         
         if not index_data or 'player_urls' not in index_data:
             self.logger.error("No existing player index found. Run index scraping first.")
