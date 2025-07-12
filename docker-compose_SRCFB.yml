@@ -1,0 +1,12 @@
+version: '3.9'
+
+services:
+  ncaaf_scraper:
+    build: ./ncaaf_scraper
+    container_name: ncaaf_scraper
+    volumes:
+      - ./ncaaf_scraper:/app
+      - ./storage:/app/storage
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on: []
