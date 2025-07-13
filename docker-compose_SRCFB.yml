@@ -1,12 +1,58 @@
-version: '3.9'
-
 services:
-  ncaaf_scraper:
-    build: ./ncaaf_scraper
-    container_name: ncaaf_scraper
-    volumes:
-      - ./ncaaf_scraper:/app
-      - ./storage:/app/storage
+  srcfb_scraper:
+    build:
+      context: .
+      dockerfile: srcfb_scraper/Dockerfile
+    container_name: srcfb_scraper
+    restart: unless-stopped
+    depends_on:
+      couchdb:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      - PYTHONUNBUFFERED=1
-    depends_on: []
+      # Scraping configuration
+      SCHEDULER_INTERVAL_MINUTES: "1"
+      TARGET_URL: "https://finance.sina.com.cn/7x24/"
+      POLL_INTERVAL: "600"
+      
+      COUCHDB_URL: "http://${COUCHDB_USER}:${COUCHDB_PASSWORD}@couchdb:5984"
+      COUCHDB_DATABASE: "srcfb_database"
+      
+      # CouchDB connection parameters
+      COUCHDB_CONNECTION_TIMEOUT_MS: "10000"
+      COUCHDB_SOCKET_TIMEOUT_MS: "60000"
+      COUCHDB_MAX_CONNECTIONS: "100"
+
+      # Retry configuration
+      MAX_RETRIES: "3"
+      INITIAL_BACKOFF_MS: "1000"
+    
+    volumes:
+      - "./srcfb_scraper:/app/logs"
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - app_network
+      - grid_network  # Added to connect to the Selenium Grid
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  app_network:
+    driver: bridge
+  grid_network:
+    driver: bridge

@@ -1,0 +1,106 @@
+services:
+  couchdb:
+    image: couchdb:latest
+    container_name: couchdb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5984:5984"
+    env_file:
+      - .env
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5984"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  couchdb-init:
+    image: curlimages/curl:latest
+    container_name: couchdb-init
+    depends_on:
+      couchdb:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - ./scripts/couchdb/init-couchdb.sh:/init-couchdb.sh
+    command: ["/bin/sh", "/init-couchdb.sh"]
+    networks:
+      - app_network
+    restart: on-failure
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./scripts/postgres/initdb.d:/docker-entrypoint-initdb.d
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  adminer:
+    image: adminer
+    container_name: adminer
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8082:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+      - ADMINER_DEFAULT_DB_NAME=financial_news
+      - ADMINER_DEFAULT_USER=admin
+      - ADMINER_DEFAULT_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - app_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  
+volumes:
+  couchdb_data:
+    driver: local
+  pg_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  app_network:
+    driver: bridge
+  grid_network:
+    driver: bridge
