@@ -1,8 +1,8 @@
 services:
   srcfb_scraper:
     build:
-      context: .
-      dockerfile: srcfb_scraper/Dockerfile
+      context: ./srcfb_scraper
+      dockerfile: Dockerfile
     container_name: srcfb_scraper
     restart: unless-stopped
     depends_on:
@@ -13,7 +13,7 @@ services:
     environment:
       # Scraping configuration
       SCHEDULER_INTERVAL_MINUTES: "1"
-      TARGET_URL: "https://finance.sina.com.cn/7x24/"
+      TARGET_URL: "https://www.sports-reference.com/cfb/players/a-index.html"
       POLL_INTERVAL: "600"
       
       COUCHDB_URL: "http://${COUCHDB_USER}:${COUCHDB_PASSWORD}@couchdb:5984"
