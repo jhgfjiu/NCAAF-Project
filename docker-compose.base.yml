@@ -11,7 +11,7 @@ services:
       COUCHDB_USER: ${COUCHDB_USER}
       COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
       COUCHDB_SECRET:    ${COUCHDB_SECRET}
-      NODENAME:          127.0.0.1
+      # NODENAME:          127.0.0.1
     volumes:
       - couchdb_data:/opt/couchdb/data
     networks:
@@ -28,15 +28,19 @@ services:
         max-file: "3"
 
   couchdb-init:
-    image: alpine:latest
+    image: curlimages/curl:latest
     container_name: couchdb-init
     depends_on:
       - couchdb
-    env_file: [.env]
+    env_file:
+      - .env
     volumes:
-      - ./scripts/couchdb/init-couchdb.sh:/init-couchdb.sh:ro
-    entrypoint: ["/bin/sh", "/init-couchdb.sh"]
+      - ./scripts/couchdb/init_couchdb.sh:/init_couchdb.sh:ro
+    command: sh /init_couchdb.sh
     restart: "no"
+    networks:
+      - app_network
+
 
   postgres:
     image: postgres:latest

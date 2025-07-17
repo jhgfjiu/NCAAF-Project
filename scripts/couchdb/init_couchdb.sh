@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-#–– Configuration (override via env or args) ––
-HOST="${COUCHDB_HOST:-127.0.0.1}"
+HOST="${COUCHDB_HOST:-couchdb}"
 PORT="${COUCHDB_PORT:-5984}"
 ADMIN_USER="${COUCHDB_USER:-admin}"
 ADMIN_PASS="${COUCHDB_PASSWORD:-password}"
 
-#–– Wait for CouchDB to accept connections ––
-echo "⏳ Waiting for CouchDB at http://${HOST}:${PORT}…"
-until curl -s "http://${HOST}:${PORT}/" >/dev/null; do
+echo "Waiting for CouchDB at http://${HOST}:${PORT}…"
+
+until curl -s -o /dev/null -w "%{http_code}" \
+    -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    "http://${HOST}:${PORT}/" | grep -q "200"; do
+  echo "Waiting for CouchDB to be ready..."
   sleep 2
 done
-echo "✅ CouchDB is online"
 
-#–– Helper: create a DB only if it doesn't exist ––
+echo "CouchDB is online"
+
 create_if_missing() {
   local db="$1"
   local code
@@ -22,18 +24,17 @@ create_if_missing() {
     -u "${ADMIN_USER}:${ADMIN_PASS}" \
     "http://${HOST}:${PORT}/${db}")
   if [[ "$code" -eq 404 ]]; then
-    echo "➕ Creating database ${db}"
+    echo "Creating database ${db}"
     curl -s -u "${ADMIN_USER}:${ADMIN_PASS}" \
          -X PUT "http://${HOST}:${PORT}/${db}" \
-         && echo "   ✔ ${db} created"
+         && echo "${db} created"
   else
-    echo "ℹ️  ${db} exists (HTTP $code), skipping"
+    echo "${db} exists (HTTP $code), skipping"
   fi
 }
 
-#–– Create the three system DBs ––
 for SYSDB in _users _replicator _global_changes; do
   create_if_missing "$SYSDB"
 done
 
-echo "🎉 Initialization complete."
+echo "Initialization complete."
