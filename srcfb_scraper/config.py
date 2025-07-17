@@ -69,8 +69,8 @@ MAX_CONCURRENT_REQUESTS = 1  # Conservative for academic research
 COUCHDB_URL = os.getenv('COUCHDB_URL', 'http://localhost:5984')
 COUCHDB_USERNAME = os.getenv('COUCHDB_USERNAME', None)
 COUCHDB_PASSWORD = os.getenv('COUCHDB_PASSWORD', None)
-COUCHDB_DATABASE = os.getenv('COUCHDB_DATABASE', 'ncaaf_players')
+COUCHDB_DATABASE = os.getenv('COUCHDB_DATABASE', 'srcfb_database')
 
 # Storage mode: 'file' or 'couchdb'
-STORAGE_MODE = os.getenv('STORAGE_MODE', 'file')
+STORAGE_MODE = os.getenv('STORAGE_MODE', 'couchdb')
 
