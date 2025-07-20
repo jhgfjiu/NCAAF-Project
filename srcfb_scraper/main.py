@@ -316,11 +316,11 @@ def main():
         try:
             client = utils.get_couchdb_client()
             db_info = client.get_database_info()
-            print(f"✅ Connected to CouchDB database: {client.database}")
-            print(f"   Documents: {db_info.get('doc_count', 0)}")
-            print(f"   Size: {db_info.get('data_size', 0)} bytes")
+            print(f"Connected to CouchDB database: {client.database}")
+            print(f"Documents: {db_info.get('doc_count', 0)}")
+            print(f"Size: {db_info.get('data_size', 0)} bytes")
         except Exception as e:
-            print(f"❌ Failed to connect to CouchDB: {e}")
+            print(f"Failed to connect to CouchDB: {e}")
             print("Make sure CouchDB is running and accessible at the configured URL")
             sys.exit(1)
     

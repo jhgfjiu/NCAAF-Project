@@ -364,13 +364,23 @@ def save_data(data: Dict[str, Any], identifier: str, logger: logging.Logger) -> 
     Returns:
         True if successful, False otherwise
     """
+    identifier = str(identifier)
+
+    if identifier.endswith('.json'):
+        identifier = identifier[:-5]
+
     if config.STORAGE_MODE == 'couchdb':
+        if not isinstance(data, dict):
+            logger.warning("Auto-wrapping non-dict data before CouchDB save")
+            data = {
+                "data": data,
+                "wrapped": True,
+                "saved_at": datetime.now().isoformat()
+            }
         return save_to_couchdb(data, identifier, logger)
     else:
-        # Default to file storage
         filepath = config.PLAYER_DATA_DIR / f"{identifier}.json"
         return save_json(data, filepath, logger)
-
 
 def load_data(identifier: str, logger: logging.Logger) -> Optional[Dict[str, Any]]:
     """
