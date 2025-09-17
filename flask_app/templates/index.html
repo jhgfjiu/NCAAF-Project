@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NFL Draft Predictor</title>
+</head>
+<body>
+    <header>
+        <h1>NFL Draft Predictor</a></h1>
+    </header>
+  </main>
+  <table border="1">
+    <thead>
+      <tr><th>Rank</th><th>Name</th><th>Team</th></tr>
+    </thead>
+    <tbody>
+      {% for player in players %}
+      <tr>
+        <td>{{ player.rank }}</td>
+        <td>{{ player.name }}</td>
+        <td>{{ player.team }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>
