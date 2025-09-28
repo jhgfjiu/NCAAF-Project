@@ -12,6 +12,7 @@ import pandas as pd
 import config
 import utils
 
+from index_scraper import PlayerIndexScraper
 
 class PlayerStatsScraper:
     """Scrapes individual player pages for comprehensive statistics."""
@@ -419,18 +420,15 @@ class PlayerStatsScraper:
         
         return results
 
-
+"""
 def main():
-    """Main function for testing the player scraper."""
+    # Main function for testing the player scraper.
     scraper = PlayerStatsScraper()
     
     # Test with a single player URL
     test_url = "https://www.sports-reference.com/cfb/players/sample-player-1.html"
-    
-    # In real usage, you would get URLs from index_scraper
-    # from index_scraper import PlayerIndexScraper
-    # index_scraper = PlayerIndexScraper()
-    # player_urls = list(index_scraper.get_all_player_urls(['A']))[:5]  # Test first 5
+    index_scraper = PlayerIndexScraper()
+    player_urls = list(index_scraper.get_all_player_urls(['A']))[:5]  # Test first 5
     
     print("Player scraper ready. Use with URLs from index_scraper.")
     print(f"Current storage mode: {config.STORAGE_MODE}")
@@ -439,3 +437,24 @@ def main():
 
 if __name__ == "__main__":
     main()
+"""
+
+def main():
+    """Main function to scrape players end-to-end using index_scraper."""
+    scraper = PlayerStatsScraper()
+    index_scraper = PlayerIndexScraper()
+    
+    # Step 1: get some player URLs (test with A only for now)
+    player_urls = list(index_scraper.get_all_player_urls(['A']))[:10]  # first 10 players
+    
+    print(f"Discovered {len(player_urls)} player URLs from index scraper.")
+    
+    # Step 2: scrape stats for those players
+    results = scraper.scrape_multiple_players(player_urls)
+    
+    # Step 3: summarize results
+    success_count = sum(results.values())
+    print(f"Scraping complete: {success_count}/{len(results)} players successfully scraped")
+    print("Sample results:")
+    for url, ok in list(results.items())[:3]:  # show first 3
+        print(f"  {url}: {'OK' if ok else 'FAILED'}")
