@@ -18,12 +18,14 @@ PLAYER_URL_TEMPLATE = f"{CFB_BASE_URL}/players/{{player_id}}.html"
 
 # Request headers for academic research
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Academic Research Bot) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.5',
     'Accept-Encoding': 'gzip, deflate, br',
     'Connection': 'keep-alive',
     'Upgrade-Insecure-Requests': '1',
+    'Referer': 'https://www.sports-reference.com/',
+    'DNT': '1',
 }
 
 # Rate limiting settings (respectful scraping)
@@ -66,11 +68,10 @@ SESSION_TIMEOUT = 30  # seconds
 MAX_CONCURRENT_REQUESTS = 1  # Conservative for academic research
 
 # CouchDB Configuration
-COUCHDB_URL = os.getenv('COUCHDB_URL', 'http://localhost:5984')
-COUCHDB_USERNAME = os.getenv('COUCHDB_USERNAME', None)
-COUCHDB_PASSWORD = os.getenv('COUCHDB_PASSWORD', None)
-COUCHDB_DATABASE = os.getenv('COUCHDB_DATABASE', 'srcfb_database')
+COUCHDB_URL = os.getenv('COUCHDB_URL')
+COUCHDB_USERNAME = os.getenv('COUCHDB_USERNAME')
+COUCHDB_PASSWORD = os.getenv('COUCHDB_PASSWORD')
+COUCHDB_DATABASE = os.getenv('COUCHDB_DATABASE')
 
 # Storage mode: 'file' or 'couchdb'
-STORAGE_MODE = os.getenv('STORAGE_MODE', 'couchdb')
-
+STORAGE_MODE = os.getenv("STORAGE_MODE", "couchdb").lower()

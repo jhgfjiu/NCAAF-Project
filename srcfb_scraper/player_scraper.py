@@ -41,12 +41,6 @@ class PlayerStatsScraper:
         
         self.logger.debug(f"Scraping player: {player_id}")
         
-        # Check if already scraped
-        output_file = config.PLAYER_DATA_DIR / config.PLAYER_FILE_PATTERN.format(player_id=player_id)
-        if output_file.exists():
-            self.logger.debug(f"Player {player_id} already scraped, skipping")
-            return utils.load_data(output_file, self.logger)
-        
         response = utils.safe_request(self.session, player_url, self.logger)
         if not response:
             self.logger.error(f"Failed to retrieve player page: {player_url}")
@@ -59,7 +53,7 @@ class PlayerStatsScraper:
             if player_data:
                 # Format and save data
                 formatted_data = utils.format_stats_data(player_data)
-                utils.save_data(formatted_data, output_file, self.logger)
+                utils.save_data(formatted_data, player_id, self.logger)
                 self.logger.info(f"Successfully scraped player: {player_id}")
                 return formatted_data
             else:
@@ -420,25 +414,6 @@ class PlayerStatsScraper:
         
         return results
 
-"""
-def main():
-    # Main function for testing the player scraper.
-    scraper = PlayerStatsScraper()
-    
-    # Test with a single player URL
-    test_url = "https://www.sports-reference.com/cfb/players/sample-player-1.html"
-    index_scraper = PlayerIndexScraper()
-    player_urls = list(index_scraper.get_all_player_urls(['A']))[:5]  # Test first 5
-    
-    print("Player scraper ready. Use with URLs from index_scraper.")
-    print(f"Current storage mode: {config.STORAGE_MODE}")
-    print("Available storage modes: 'file' (default) or 'couchdb'")
-
-
-if __name__ == "__main__":
-    main()
-"""
-
 def main():
     """Main function to scrape players end-to-end using index_scraper."""
     scraper = PlayerStatsScraper()
@@ -458,3 +433,6 @@ def main():
     print("Sample results:")
     for url, ok in list(results.items())[:3]:  # show first 3
         print(f"  {url}: {'OK' if ok else 'FAILED'}")
+
+if __name__ == "__main__":
+    main()

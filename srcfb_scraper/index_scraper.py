@@ -35,7 +35,7 @@ class PlayerIndexScraper:
         
         # Check cache first
         cache_file = config.STORAGE_DIR / config.INDEX_CACHE_PATTERN.format(letter=letter)
-        cached_data = utils.load_data(cache_file, self.logger)
+        cached_data = utils.load_data(cache_file.stem, self.logger)
         if cached_data:
             self.logger.info(f"Using cached data for letter '{letter}' ({len(cached_data)} players)")
             return cached_data
@@ -52,7 +52,7 @@ class PlayerIndexScraper:
             self.logger.info(f"Found {len(players)} players for letter '{letter}'")
             
             # Cache the results
-            utils.save_data(players, cache_file, self.logger)
+            utils.save_data(players, cache_file.stem, self.logger)
             
             return players
             

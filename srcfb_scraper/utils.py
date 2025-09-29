@@ -52,6 +52,7 @@ def create_session() -> requests.Session:
     session = requests.Session()
     session.headers.update(config.HEADERS)
     session.timeout = config.SESSION_TIMEOUT
+    
     return session
 
 
@@ -364,6 +365,8 @@ def save_data(data: Dict[str, Any], identifier: str, logger: logging.Logger) -> 
     Returns:
         True if successful, False otherwise
     """
+    logger.info(f"Saving with STORAGE_MODE={config.STORAGE_MODE}")
+
     identifier = str(identifier)
 
     if identifier.endswith('.json'):
