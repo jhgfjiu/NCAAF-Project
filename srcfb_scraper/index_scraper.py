@@ -37,8 +37,12 @@ class PlayerIndexScraper:
         cache_file = config.STORAGE_DIR / config.INDEX_CACHE_PATTERN.format(letter=letter)
         cached_data = utils.load_data(cache_file.stem, self.logger)
         if cached_data:
-            self.logger.info(f"Using cached data for letter '{letter}' ({len(cached_data)} players)")
-            return cached_data
+            if config.STORAGE_MODE == 'couchdb' and 'wrapped' in cached_data and 'data' in cached_data:
+                self.logger.info(f"Using cached data for letter '{letter}' ({len(cached_data['data'])} players)")
+                return cached_data['data']
+            else:
+                self.logger.info(f"Using cached data for letter '{letter}' ({len(cached_data)} players)")
+                return cached_data
         
         response = utils.safe_request(self.session, url, self.logger)
         if not response:

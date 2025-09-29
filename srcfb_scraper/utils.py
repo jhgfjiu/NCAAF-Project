@@ -537,7 +537,8 @@ def get_existing_player_files(logger: logging.Logger) -> set:
     try:
         for file_path in config.PLAYER_DATA_DIR.glob("*.json"):
             player_id = file_path.stem
-            existing_files.add(player_id)
+            if not player_id.startswith('index_') and player_id != 'all_players_index' and not player_id.startswith('scraping_summary'):
+                existing_files.add(player_id)
             
         logger.info(f"Found {len(existing_files)} existing player files")
         

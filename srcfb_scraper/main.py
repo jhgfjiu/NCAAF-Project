@@ -123,6 +123,10 @@ class NCAAFootballScraper:
                 if len(failed_urls) > 5:
                     self.logger.warning(f"  ... and {len(failed_urls) - 5} more")
             
+            # If no players were processed, it's not a failure.
+            if total_count == 0:
+                return True
+            
             # Consider successful if at least 80% succeed
             return success_rate >= 80.0
             
@@ -170,7 +174,7 @@ class NCAAFootballScraper:
                     player_data = utils.load_data(player_id, self.logger)
                     if player_data:
                         # For file storage, calculate file size
-                        file_path = config.PLAYER_DATA_DIR / f"{player_id}"
+                        file_path = config.PLAYER_DATA_DIR / f"{player_id}.json"
                         file_size = file_path.stat().st_size / 1024 if file_path.exists() else 0
                         
                         sample_players.append({
