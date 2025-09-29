@@ -1,7 +1,6 @@
 storage/
 
 __pycache__/
-flask_app/.env 
 node_modules
 .env
 .DS_Store
