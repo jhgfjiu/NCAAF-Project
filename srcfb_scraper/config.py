@@ -11,7 +11,8 @@ BASE_URL = "https://www.sports-reference.com"
 CFB_BASE_URL = f"{BASE_URL}/cfb"
 
 # Player index URLs (A-Z pages)
-PLAYER_INDEX_TEMPLATE = f"{CFB_BASE_URL}/players/{{letter}}-index.html"
+# Player index URL template (supports pagination)
+PLAYER_INDEX_TEMPLATE = f"{CFB_BASE_URL}/players/{{letter}}-index{{page_suffix}}.html"
 
 # Player profile URL template
 PLAYER_URL_TEMPLATE = f"{CFB_BASE_URL}/players/{{player_id}}.html"

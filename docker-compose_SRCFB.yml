@@ -52,7 +52,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-    command: ["--full", "--storage", "couchdb"]
+    command: ["--index-only", "--storage", "couchdb"]
     # command: ["--index-only", "--letters", "A", "--max-players", "10"]
 
 networks:

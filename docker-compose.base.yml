@@ -27,19 +27,19 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  #couchdb-init:
-    #image: curlimages/curl:latest
-    #container_name: couchdb-init
-    #depends_on:
-    #  - couchdb
-    #env_file:
-    #  - .env
-    #volumes:
-    #  - ./scripts/couchdb/init_couchdb.sh:/init_couchdb.sh:ro
-    #command: sh /init_couchdb.sh
-    #restart: "no"
-    #networks:
-    #  - app_network
+  couchdb-init:
+    image: curlimages/curl:latest
+    container_name: couchdb-init
+    depends_on:
+      - couchdb
+    env_file:
+      - .env
+    volumes:
+      - ./scripts/couchdb/init_couchdb.sh:/init_couchdb.sh:ro
+    command: sh /init_couchdb.sh
+    restart: "no"
+    networks:
+      - app_network
   
   flask_app:
     build:
