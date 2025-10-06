@@ -1,4 +1,5 @@
 from app import app, db, Player
+import utils
 
 # Use the Flask app context so db.session works
 with app.app_context():

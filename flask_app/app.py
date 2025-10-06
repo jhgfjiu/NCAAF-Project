@@ -2,6 +2,7 @@ from flask import Flask, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 import os
 from dotenv import load_dotenv
+import utils
 
 load_dotenv()
 
