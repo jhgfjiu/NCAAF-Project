@@ -58,7 +58,7 @@ SELECTORS = {
 
 # File naming patterns
 PLAYER_FILE_PATTERN = "{player_id}.json"
-INDEX_CACHE_PATTERN = "index_{letter}.json"
+INDEX_CACHE_PATTERN = "player_index_{letter}.json"
 
 # Logging configuration
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
