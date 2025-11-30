@@ -4,28 +4,110 @@ Visits individual player pages and extracts comprehensive statistics data
 """
 
 import re
-from typing import Dict, List, Optional, Any
+import asyncio
+import aiohttp
+import random
+from typing import Dict, List, Optional, Any, Tuple
 from bs4 import BeautifulSoup, Tag
 from tqdm import tqdm
 import pandas as pd
+import os
 
 import config
 import utils
 
 from index_scraper import PlayerIndexScraper
 
+proxies = os.getenv("PROXIES", "").split(",")
+proxies = [p.strip() for p in proxies if p.strip()]
+
+class RateLimiter:
+    """Enforce a minimum interval between any requests."""
+    def __init__(self, min_interval: float):
+        self.min_interval = min_interval
+        self._lock = asyncio.Lock()
+        self._last_time = 0
+
+    async def wait(self):
+        async with self._lock:
+            now = asyncio.get_event_loop().time()
+            elapsed = now - self._last_time
+            wait_for = max(0, self.min_interval - elapsed)
+            await asyncio.sleep(wait_for)
+            self._last_time = asyncio.get_event_loop().time()
+
 class PlayerStatsScraper:
     """Scrapes individual player pages for comprehensive statistics."""
     
     def __init__(self):
         self.logger = utils.setup_logging('player_scraper')
-        self.session = utils.create_session()
         
-    def scrape_player(self, player_url: str, player_id: str = None) -> Optional[Dict[str, Any]]:
+    async def _fetch(self, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore,
+                 url: str, rate_limiter: RateLimiter, retries: int = 5) -> Optional[str]:
         """
-        Scrape comprehensive statistics for a single player.
+        Fetch a URL with retries, full jitter, 429 handling, and global rate limiting.
+        """
+        base_backoff = 2      # seconds
+        max_backoff = 60      # seconds
+
+        async with semaphore:
+            for attempt in range(retries):
+                try:
+                    # Global pacing: wait before every request
+                    await rate_limiter.wait()
+
+                    # Small random pre-request jitter
+                    await asyncio.sleep(random.uniform(0.5, 2))
+
+                    # Set up headers with a rotating user agent
+                    headers = {
+                        **config.BASE_HEADERS,
+                        'User-Agent': random.choice(config.USER_AGENTS)
+                    }
+                    
+                    # Pick a random proxy
+                    proxy = random.choice(proxies)
+
+                    async with session.get(url, timeout=30, headers=headers, proxy=proxy) as response:
+                        if response.status == 429:
+                            # Respect Retry-After header if provided
+                            retry_after = response.headers.get("Retry-After")
+                            if retry_after is not None:
+                                try:
+                                    retry_after = int(retry_after)
+                                except ValueError:
+                                    retry_after = random.uniform(60, 180)
+                            else:
+                                retry_after = random.uniform(60, 180)
+
+                            retry_after = min(retry_after, 300)
+                            # Full jitter
+                            jittered_sleep = random.uniform(0, retry_after)
+                            self.logger.warning(f"429 Too Many Requests for {url}. Retrying after {jittered_sleep:.2f}s")
+                            await asyncio.sleep(jittered_sleep)
+                            continue
+
+                        response.raise_for_status()
+                        self.logger.debug(f"Successfully fetched {url} on attempt {attempt + 1}")
+                        return await response.text()
+
+                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                    if attempt < retries - 1:
+                        backoff = min(max_backoff, base_backoff * (2 ** attempt))
+                        delay = random.uniform(0, backoff)
+                        self.logger.warning(f"Attempt {attempt + 1}/{retries} failed for {url}: {e}. Retrying in {delay:.2f}s")
+                        await asyncio.sleep(delay)
+                    else:
+                        self.logger.error(f"All {retries} attempts failed for {url}: {e}")
+                        return None
+
+    async def scrape_player(self, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, player_url: str, rate_limiter: RateLimiter, player_id: str = None) -> Optional[Dict[str, Any]]:
+        """
+        Scrape comprehensive statistics for a single player asynchronously.
         
         Args:
+            session: aiohttp client session
+            semaphore: asyncio semaphore for concurrency control
             player_url: Full URL to player page
             player_id: Player ID (extracted from URL if not provided)
             
@@ -41,13 +123,13 @@ class PlayerStatsScraper:
         
         self.logger.debug(f"Scraping player: {player_id}")
         
-        response = utils.safe_request(self.session, player_url, self.logger)
-        if not response:
+        html_content = await self._fetch(session, semaphore, player_url, rate_limiter)
+        if not html_content:
             self.logger.error(f"Failed to retrieve player page: {player_url}")
             return None
         
         try:
-            soup = BeautifulSoup(response.content, 'html.parser')
+            soup = BeautifulSoup(html_content, 'html.parser')
             player_data = self._extract_player_data(soup, player_id, player_url)
             
             if player_data:
@@ -371,50 +453,62 @@ class PlayerStatsScraper:
         
         return rows_data
     
-    def scrape_multiple_players(self, player_urls: List[str], resume: bool = True) -> Dict[str, bool]:
+    async def scrape_multiple_players(
+    self,
+    session: aiohttp.ClientSession,
+    player_urls: List[str],
+    resume: bool = True,
+    concurrency: Optional[int] = None
+) -> Dict[str, bool]:
         """
-        Scrape multiple players with progress tracking.
+        Scrape multiple players asynchronously with dynamic throttling and progress tracking.
+        """
+        if concurrency is None:
+            concurrency = config.MAX_CONCURRENT_REQUESTS
+
+        rate_limiter = RateLimiter(min_interval=3.0)
         
-        Args:
-            player_urls: List of player URLs to scrape
-            resume: Whether to skip already processed players
-            
-        Returns:
-            Dictionary mapping player URLs to success status
-        """
         results = {}
-        
-        # Filter already processed if resuming
-        if resume:
-            existing_data = utils.get_existing_data_ids(self.logger)
-            urls_to_process = []
-            
-            for url in player_urls:
-                player_id = utils.extract_player_id_from_url(url)
-                if player_id not in existing_data:
-                    urls_to_process.append(url)
-            
-            self.logger.info(f"Resuming scrape: {len(urls_to_process)} new players, "
-                           f"{len(existing_data)} already processed")
-        else:
-            urls_to_process = player_urls
-        
-        # Process players with progress bar
-        for url in tqdm(urls_to_process, desc="Scraping players"):
-            try:
-                player_data = self.scrape_player(url)
-                results[url] = player_data is not None
-                
-            except Exception as e:
-                self.logger.error(f"Error processing player URL {url}: {e}")
-                results[url] = False
-        
-        success_count = sum(results.values())
+
+        # Filter already processed
+        existing_data = utils.get_existing_data_ids(self.logger) if resume else set()
+        urls_to_process = [url for url in player_urls if utils.extract_player_id_from_url(url) not in existing_data]
+
+        self.logger.info(f"Starting scrape: {len(urls_to_process)} new players, {len(existing_data)} already processed")
+        if not urls_to_process:
+            return {}
+
+        semaphore = asyncio.Semaphore(concurrency)
+        tasks = {asyncio.create_task(self.scrape_player(session, semaphore, url, rate_limiter)) for url in urls_to_process}
+        task_to_url = {task: url for task, url in zip(tasks, urls_to_process)}
+
+        with tqdm(total=len(tasks), desc="Scraping players") as pbar:
+            pending = tasks
+            while pending:
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    url = task_to_url[task]
+                    try:
+                        player_data = task.result()
+                        results[url] = player_data is not None
+                    except Exception as e:
+                        self.logger.error(f"Error processing {url}: {e}")
+                        results[url] = False
+                    pbar.update(1)
+
+                # Dynamic concurrency: if >30% of last batch were 429, temporarily reduce concurrency
+                recent_failures = sum(1 for t in done if task_to_url[t] in results and not results[task_to_url[t]])
+                if recent_failures / max(1, len(done)) > 0.3:
+                    old_value = semaphore._value
+                    semaphore._value = max(1, semaphore._value - 1)
+                    self.logger.info(f"High failure rate detected, reducing concurrency from {old_value} to {semaphore._value}")
+
+        success_count = sum(1 for ok in results.values() if ok)
         self.logger.info(f"Scraping complete: {success_count}/{len(urls_to_process)} players successful")
-        
+
         return results
 
-def main():
+async def main():
     """Main function to scrape players end-to-end using index_scraper."""
     scraper = PlayerStatsScraper()
     index_scraper = PlayerIndexScraper()
@@ -425,14 +519,27 @@ def main():
     print(f"Discovered {len(player_urls)} player URLs from index scraper.")
     
     # Step 2: scrape stats for those players
-    results = scraper.scrape_multiple_players(player_urls)
+    # This main function is for testing and needs a session if called directly.
+    # For simplicity, we assume it's run via the main orchestrator.
+    # If you want to run this file directly, you'd need to create a session here.
+    # async with aiohttp.ClientSession() as session:
+    #     results = await scraper.scrape_multiple_players(session, player_urls)
     
+    # The following line will fail if run directly, as it's missing the session argument.
+    # It is kept this way because the primary entry point is main.py
+    # results = await scraper.scrape_multiple_players(player_urls)
+    
+    # To make this file runnable, we can do this for a simple test:
+    async with aiohttp.ClientSession() as session:
+        results = await scraper.scrape_multiple_players(session, player_urls)
+
+
     # Step 3: summarize results
-    success_count = sum(results.values())
+    success_count = sum(1 for status in results.values() if status)
     print(f"Scraping complete: {success_count}/{len(results)} players successfully scraped")
     print("Sample results:")
     for url, ok in list(results.items())[:3]:  # show first 3
         print(f"  {url}: {'OK' if ok else 'FAILED'}")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

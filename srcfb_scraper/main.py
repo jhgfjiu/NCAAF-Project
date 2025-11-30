@@ -4,10 +4,12 @@ Coordinates index scraping and player data extraction for academic research
 """
 
 import argparse
+import asyncio
 import sys
 from pathlib import Path
 from typing import List, Optional
 import json
+import aiohttp
 
 import config
 import utils
@@ -23,8 +25,9 @@ class NCAAFootballScraper:
         self.index_scraper = PlayerIndexScraper()
         self.player_scraper = PlayerStatsScraper()
         
-    def run_full_scrape(self, letters: Optional[List[str]] = None, 
-                       resume: bool = True, max_players: Optional[int] = None) -> bool:
+    async def run_full_scrape(self, letters: Optional[List[str]] = None, 
+                             resume: bool = True, max_players: Optional[int] = None,
+                             concurrency: int = 20) -> bool:
         """
         Run the complete scraping process: index -> players -> save results.
         
@@ -32,12 +35,13 @@ class NCAAFootballScraper:
             letters: List of alphabet letters to scrape (None for all)
             resume: Whether to resume from existing progress
             max_players: Maximum number of players to scrape (None for all)
+            concurrency: Number of players to scrape at once
             
         Returns:
             True if scraping completed successfully
         """
         self.logger.info("Starting NCAA Football scraper")
-        self.logger.info(f"Configuration: letters={letters}, resume={resume}, max_players={max_players}")
+        self.logger.info(f"Configuration: letters={letters}, resume={resume}, max_players={max_players}, concurrency={concurrency}")
         
         try:
             # Phase 1: Scrape player indexes
@@ -62,7 +66,7 @@ class NCAAFootballScraper:
             
             # Phase 2: Scrape individual players
             self.logger.info("=== PHASE 2: Scraping Individual Players ===")
-            success = self._run_player_scraping(player_urls, resume)
+            success = await self._run_player_scraping(player_urls, resume, concurrency)
             
             # Phase 3: Generate summary report
             self.logger.info("=== PHASE 3: Generating Summary Report ===")
@@ -100,10 +104,13 @@ class NCAAFootballScraper:
             self.logger.error(f"Error in index scraping phase: {e}")
             return []
     
-    def _run_player_scraping(self, player_urls: List[str], resume: bool = True) -> bool:
+    async def _run_player_scraping(self, player_urls: List[str], resume: bool = True, concurrency: int = 20) -> bool:
         """Run the player scraping phase."""
         try:
-            results = self.player_scraper.scrape_multiple_players(player_urls, resume)
+            async with aiohttp.ClientSession() as session:
+                results = await self.player_scraper.scrape_multiple_players(
+                    session, player_urls, resume, concurrency=concurrency
+                )
             
             success_count = sum(results.values())
             total_count = len(results)
@@ -229,23 +236,41 @@ class NCAAFootballScraper:
         player_urls = self._run_index_scraping(letters)
         return len(player_urls) > 0
     
-    def run_players_only(self, max_players: Optional[int] = None, resume: bool = True) -> bool:
+    async def run_players_only(self, max_players: Optional[int] = None, resume: bool = True, concurrency: int = 20) -> bool:
         """Run only the player scraping phase using existing index."""
         self.logger.info("Running player scraping only")
         
-        # Load existing index using unified storage
-        index_data = utils.load_data("all_players_index", self.logger)
-        
-        if not index_data or 'player_urls' not in index_data:
-            self.logger.error("No existing player index found. Run index scraping first.")
+        player_urls = []
+        self.logger.info(f"Loading player URLs from per-letter index caches using {config.STORAGE_MODE} storage...")
+
+        if config.STORAGE_MODE == 'couchdb':
+            client = utils.get_couchdb_client()
+            for letter in config.ALPHABET:
+                doc = client.get_document(f"player_index_{letter}")
+                if doc and 'data' in doc and isinstance(doc['data'], list):
+                    for player in doc['data']:
+                        if player and 'full_url' in player:
+                            player_urls.append(player['full_url'])
+        else: # File storage
+            for letter in config.ALPHABET:
+                # Note: This assumes index caches are in STORAGE_DIR, not PLAYER_DATA_DIR
+                cache_path = config.STORAGE_DIR / config.INDEX_CACHE_PATTERN.format(letter=letter)
+                index_data = utils.load_json(cache_path, self.logger)
+                if index_data and isinstance(index_data, list):
+                    for player in index_data:
+                        if player and 'full_url' in player:
+                            player_urls.append(player['full_url'])
+
+        if not player_urls:
+            self.logger.error("No player URLs found in per-letter index files. Run index scraping first.")
             return False
         
-        player_urls = index_data['player_urls']
-        
+        self.logger.info(f"Loaded {len(player_urls)} total player URLs from index caches.")
+
         if max_players and len(player_urls) > max_players:
             player_urls = player_urls[:max_players]
-        
-        return self._run_player_scraping(player_urls, resume)
+
+        return await self._run_player_scraping(player_urls, resume, concurrency)
 
 
 def create_argument_parser():
@@ -264,8 +289,8 @@ Examples:
   # Scrape only players with names starting with A and B
   python main.py --full --letters A B
   
-  # Resume interrupted scrape with first 100 players
-  python main.py --full --max-players 100 --resume
+  # Resume interrupted scrape with first 100 players and concurrency of 20
+  python main.py --full --max-players 100 --resume --concurrency 20
   
   # Only scrape player indexes
   python main.py --index-only
@@ -291,6 +316,8 @@ Examples:
                        help='Maximum number of players to scrape')
     parser.add_argument('--no-resume', action='store_true',
                        help='Start fresh instead of resuming existing progress')
+    parser.add_argument('--concurrency', type=int, default=20, metavar='N',
+                       help='Number of players to scrape at once (default: 20)')
     
     # Storage backend selection
     parser.add_argument('--storage', choices=['file', 'couchdb'], default='file',
@@ -299,7 +326,7 @@ Examples:
     return parser
 
 
-def main():
+async def main():
     """Main entry point for the NCAA Football scraper."""
     parser = create_argument_parser()
     args = parser.parse_args()
@@ -333,18 +360,21 @@ def main():
     
     # Run appropriate scraping mode
     try:
+        success = False
         if args.full:
-            success = scraper.run_full_scrape(
+            success = await scraper.run_full_scrape(
                 letters=args.letters,
                 resume=not args.no_resume,
-                max_players=args.max_players
+                max_players=args.max_players,
+                concurrency=args.concurrency
             )
         elif args.index_only:
             success = scraper.run_index_only(letters=args.letters)
         elif args.players_only:
-            success = scraper.run_players_only(
+            success = await scraper.run_players_only(
                 max_players=args.max_players,
-                resume=not args.no_resume
+                resume=not args.no_resume,
+                concurrency=args.concurrency
             )
         
         # Exit with appropriate code
@@ -359,4 +389,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

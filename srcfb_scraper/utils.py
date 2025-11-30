@@ -7,6 +7,7 @@ import json
 import logging
 import time
 import requests
+import random
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
@@ -50,7 +51,9 @@ def setup_logging(name: str = 'ncaaf_scraper') -> logging.Logger:
 def create_session() -> requests.Session:
     """Create a configured requests session for web scraping."""
     session = requests.Session()
-    session.headers.update(config.HEADERS)
+    session.headers.update(config.BASE_HEADERS)
+    if config.USER_AGENTS:
+        session.headers['User-Agent'] = random.choice(config.USER_AGENTS)
     session.timeout = config.SESSION_TIMEOUT
     
     return session

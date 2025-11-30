@@ -18,8 +18,14 @@ PLAYER_INDEX_TEMPLATE = f"{CFB_BASE_URL}/players/{{letter}}-index{{page_suffix}}
 PLAYER_URL_TEMPLATE = f"{CFB_BASE_URL}/players/{{player_id}}.html"
 
 # Request headers for academic research
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+]
+
+BASE_HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.5',
     'Accept-Encoding': 'gzip, deflate, br',
@@ -30,7 +36,7 @@ HEADERS = {
 }
 
 # Rate limiting settings (respectful scraping)
-REQUEST_DELAY = 3  # seconds between requests
+REQUEST_DELAY = 0.3  # seconds between requests
 MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds to wait before retry
 

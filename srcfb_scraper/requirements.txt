@@ -1,24 +1,15 @@
-# Core web scraping dependencies
-requests>=2.31.0
-beautifulsoup4>=4.12.0
-lxml>=4.9.0
+# Core web scraping and parsing
+aiohttp>=3.8.0         # Asynchronous HTTP requests
+requests>=2.31.0       # Synchronous HTTP requests
+beautifulsoup4>=4.12.0 # HTML and XML parsing
+lxml>=4.9.0            # High-performance parser for BeautifulSoup
 
-# Data handling and processing
-pandas>=2.0.0
-numpy>=1.24.0
+# Data handling
+pandas>=2.0.0          # Data manipulation and analysis
+numpy>=1.24.0          # Fundamental package for scientific computing
 
 # Utility libraries
-tqdm>=4.65.0          # Progress bars for long-running scrapes
-python-dateutil>=2.8.0  # Date parsing utilities
-
-# Optional: Enhanced error handling and retries
-urllib3>=2.0.0
-certifi>=2023.0.0
-
-# CouchDB client options (choose one)
-CouchDB>=1.2          # Official CouchDB client
-# cloudant>=2.15.0    # Alternative: IBM Cloudant client (CouchDB compatible)
-
-# Development and testing (optional)
-pytest>=7.0.0
-pytest-mock>=3.10.0
+tqdm>=4.65.0           # Progress bars for loops
+python-dateutil>=2.8.0 # Powerful extensions to datetime
+urllib3>=2.0.0         # Used by requests for robust connection pooling
+certifi>=2023.0.0      # Provides Mozilla's CA Bundle
