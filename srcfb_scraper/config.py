@@ -79,6 +79,7 @@ COUCHDB_URL = os.getenv('COUCHDB_URL')
 COUCHDB_USERNAME = os.getenv('COUCHDB_USERNAME')
 COUCHDB_PASSWORD = os.getenv('COUCHDB_PASSWORD')
 COUCHDB_DATABASE = os.getenv('COUCHDB_DATABASE')
+BATCH_SIZE = 300
 
 # Storage mode: 'file' or 'couchdb'
 STORAGE_MODE = os.getenv("STORAGE_MODE", "couchdb").lower()

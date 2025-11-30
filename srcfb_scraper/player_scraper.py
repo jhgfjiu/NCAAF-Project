@@ -146,7 +146,6 @@ class PlayerStatsScraper:
             if player_data:
                 # Format and save data
                 formatted_data = utils.format_stats_data(player_data)
-                utils.save_data(formatted_data, player_id, self.logger)
                 self.logger.info(f"Successfully scraped player: {player_id}")
                 return formatted_data
             else:
@@ -480,6 +479,7 @@ class PlayerStatsScraper:
         rate_limiter = RateLimiter(min_interval=0.5)
         
         results = {}
+        batch_data = []
 
         # Filter already processed
         existing_data = utils.get_existing_data_ids(self.logger) if resume else set()
@@ -502,10 +502,18 @@ class PlayerStatsScraper:
                     try:
                         player_data = task.result()
                         results[url] = player_data is not None
+                        if player_data:
+                            batch_data.append(player_data)
                     except Exception as e:
                         self.logger.error(f"Error processing {url}: {e}")
                         results[url] = False
                     pbar.update(1)
+
+                # Check if batch is ready to be saved
+                if len(batch_data) >= config.BATCH_SIZE:
+                    self.logger.info(f"Saving batch of {len(batch_data)} players...")
+                    utils.save_bulk_data(batch_data, self.logger)
+                    batch_data.clear()
 
                 # Dynamic concurrency: if >30% of last batch were 429, temporarily reduce concurrency
                 recent_failures = sum(1 for t in done if task_to_url[t] in results and not results[task_to_url[t]])
@@ -513,6 +521,12 @@ class PlayerStatsScraper:
                     old_value = semaphore._value
                     semaphore._value = max(1, semaphore._value - 1)
                     self.logger.info(f"High failure rate detected, reducing concurrency from {old_value} to {semaphore._value}")
+
+        # Save any remaining players in the batch
+        if batch_data:
+            self.logger.info(f"Saving remaining {len(batch_data)} players...")
+            utils.save_bulk_data(batch_data, self.logger)
+            batch_data.clear()
 
         success_count = sum(1 for ok in results.values() if ok)
         self.logger.info(f"Scraping complete: {success_count}/{len(urls_to_process)} players successful")

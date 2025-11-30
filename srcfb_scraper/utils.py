@@ -388,6 +388,34 @@ def save_data(data: Dict[str, Any], identifier: str, logger: logging.Logger) -> 
         filepath = config.PLAYER_DATA_DIR / f"{identifier}.json"
         return save_json(data, filepath, logger)
 
+def save_bulk_data(documents: List[Dict[str, Any]], logger: logging.Logger) -> bool:
+    """
+    Save a batch of documents using the configured storage backend.
+    Currently only supports CouchDB.
+    """
+    if config.STORAGE_MODE == 'couchdb':
+        try:
+            client = get_couchdb_client()
+            # Prepare documents for bulk save, ensuring _id is set
+            for doc in documents:
+                if 'player_id' in doc and '_id' not in doc:
+                    doc['_id'] = doc['player_id']
+            
+            successful, failed = client.bulk_save(documents)
+            logger.info(f"Bulk saved to CouchDB: {successful} successful, {failed} failed.")
+            return failed == 0
+        except Exception as e:
+            logger.error(f"Failed to bulk save to CouchDB: {e}")
+            return False
+    else:
+        logger.warning("Bulk saving is only implemented for CouchDB. Saving files individually.")
+        success = True
+        for doc in documents:
+            if 'player_id' in doc:
+                if not save_data(doc, doc['player_id'], logger):
+                    success = False
+        return success
+
 def load_data(identifier: str, logger: logging.Logger) -> Optional[Dict[str, Any]]:
     """
     Load data using configured storage backend (file or CouchDB).
