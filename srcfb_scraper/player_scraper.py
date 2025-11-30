@@ -49,6 +49,7 @@ class PlayerStatsScraper:
         """
         base_backoff = 2      # seconds
         max_backoff = 60      # seconds
+        proxy = None  # Ensure proxy is defined for logging in exception blocks
 
         async with semaphore:
             for attempt in range(retries):
@@ -66,7 +67,7 @@ class PlayerStatsScraper:
                     }
                     
                     # Pick a random proxy
-                    proxy = random.choice(proxies)
+                    proxy = random.choice(proxies) if proxies else None
 
                     async with session.get(url, timeout=30, headers=headers, proxy=proxy) as response:
                         if response.status == 429:
@@ -83,7 +84,10 @@ class PlayerStatsScraper:
                             retry_after = min(retry_after, 300)
                             # Full jitter
                             jittered_sleep = random.uniform(0, retry_after)
-                            self.logger.warning(f"429 Too Many Requests for {url}. Retrying after {jittered_sleep:.2f}s")
+                            self.logger.warning(
+                                f"429 Too Many Requests for {url} (Proxy: {proxy}). "
+                                f"Retrying after {jittered_sleep:.2f}s"
+                            )
                             await asyncio.sleep(jittered_sleep)
                             continue
 
@@ -95,10 +99,13 @@ class PlayerStatsScraper:
                     if attempt < retries - 1:
                         backoff = min(max_backoff, base_backoff * (2 ** attempt))
                         delay = random.uniform(0, backoff)
-                        self.logger.warning(f"Attempt {attempt + 1}/{retries} failed for {url}: {e}. Retrying in {delay:.2f}s")
+                        self.logger.warning(
+                            f"Attempt {attempt + 1}/{retries} failed for {url}: {e} (Proxy: {proxy}). "
+                            f"Retrying in {delay:.2f}s"
+                        )
                         await asyncio.sleep(delay)
                     else:
-                        self.logger.error(f"All {retries} attempts failed for {url}: {e}")
+                        self.logger.error(f"All {retries} attempts failed for {url}: {e} (Proxy: {proxy})")
                         return None
 
     async def scrape_player(self, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, player_url: str, rate_limiter: RateLimiter, player_id: str = None) -> Optional[Dict[str, Any]]:
