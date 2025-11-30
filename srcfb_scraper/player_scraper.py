@@ -58,7 +58,7 @@ class PlayerStatsScraper:
                     await rate_limiter.wait()
 
                     # Small random pre-request jitter
-                    await asyncio.sleep(random.uniform(0.2, 0.5))
+                    await asyncio.sleep(random.uniform(0.1, 0.3))
 
                     # Set up headers with a rotating user agent
                     headers = {
@@ -477,7 +477,7 @@ class PlayerStatsScraper:
         if concurrency is None:
             concurrency = config.MAX_CONCURRENT_REQUESTS
 
-        rate_limiter = RateLimiter(min_interval=1.0)
+        rate_limiter = RateLimiter(min_interval=0.5)
         
         results = {}
 
