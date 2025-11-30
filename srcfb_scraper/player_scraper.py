@@ -58,7 +58,7 @@ class PlayerStatsScraper:
                     await rate_limiter.wait()
 
                     # Small random pre-request jitter
-                    await asyncio.sleep(random.uniform(0.5, 2))
+                    await asyncio.sleep(random.uniform(0.2, 0.5))
 
                     # Set up headers with a rotating user agent
                     headers = {
@@ -68,6 +68,8 @@ class PlayerStatsScraper:
                     
                     # Pick a random proxy
                     proxy = random.choice(proxies) if proxies else None
+
+                    start_time = asyncio.get_event_loop().time()
 
                     async with session.get(url, timeout=30, headers=headers, proxy=proxy) as response:
                         if response.status == 429:
@@ -92,7 +94,9 @@ class PlayerStatsScraper:
                             continue
 
                         response.raise_for_status()
-                        self.logger.debug(f"Successfully fetched {url} on attempt {attempt + 1}")
+                        
+                        duration = asyncio.get_event_loop().time() - start_time
+                        self.logger.debug(f"Successfully fetched {url} on attempt {attempt + 1} in {duration:.2f}s")
                         return await response.text()
 
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
@@ -473,7 +477,7 @@ class PlayerStatsScraper:
         if concurrency is None:
             concurrency = config.MAX_CONCURRENT_REQUESTS
 
-        rate_limiter = RateLimiter(min_interval=3.0)
+        rate_limiter = RateLimiter(min_interval=1.0)
         
         results = {}
 
